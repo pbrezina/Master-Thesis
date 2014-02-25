@@ -1,0 +1,26 @@
+SSSD provider for OpenLMI
+
+A long-standing problem in Linux system administration is how to monitor,
+configure and manage a large number of systems remotely.
+
+The emerging OpenLMI project aims at simplifying remote Linux system
+administration using a set of APIs based on industry standards such as CIM,
+that allow the developer to create a module - a "provider" to manage any aspect
+of a Linux system locally or remotely.
+
+The goal of this thesis is to create a provider that allows the administrator
+to manage the SSSD using the OpenLMI framework. In particular the thesis will
+include:
+
+* Overview of both SSSD deamon and the OpenLMI framework
+
+* Discussion of different aspects of managing the SSSD including a list of
+  tasks that the OpenLMI plugin will expose. This part of thesis may expose
+  functionality that is missing in the SSSD.
+
+* Design and implementation of a provider for the OpenLMI framework that will
+  allow the administrator to manage the SSSD
+
+* The design and implementation must be agreed on with the SSSD and OpenLMI
+  development teams
+
