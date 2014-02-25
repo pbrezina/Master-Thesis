@@ -19,7 +19,9 @@ include:
   functionality that is missing in the SSSD.
 
 * Design and implementation of a provider for the OpenLMI framework that will
-  allow the administrator to manage the SSSD
+  allow the administrator to manage the SSSD, namely: enabling/disabling
+  domains and services, changing debug level, providing basic information
+  about domains
 
 * The design and implementation must be agreed on with the SSSD and OpenLMI
   development teams

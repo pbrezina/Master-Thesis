@@ -1,0 +1,62 @@
+\documentclass[12pt,oneside,final]{fithesis2}
+\usepackage[english]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[plainpages=false,pdfpagelabels,unicode]{hyperref}
+\usepackage{setspace}
+\usepackage{biblatex}
+\usepackage{breakurl}
+\usepackage{underscore}
+\usepackage{perpage}
+\usepackage{enumerate}
+\usepackage{float}
+\usepackage{tikz}
+\usepackage{amsmath,bm,times}
+\usepackage{array}
+\usetikzlibrary{shapes,arrows,shadows,calc,decorations.pathmorphing}
+\newcommand{\mx}[1]{\mathbf{\bm{#1}}} % Matrix command
+\newcommand{\vc}[1]{\mathbf{\bm{#1}}} % Vector command
+
+\pgfdeclarelayer{background}
+\pgfdeclarelayer{foreground}
+\pgfsetlayers{background,main,foreground}
+
+\MakePerPage{footnote}
+\setcounter{tocdepth}{2}
+\setcounter{secnumdepth}{2}
+
+\newcommand{\cmplref}[1]{\ref{#1}: \nameref{#1}}
+
+\newenvironment{changemargin}[2]
+  {\list{}{\rightmargin#2\leftmargin#1\parsep=0pt\topsep=0pt\partopsep=0pt}
+   \item[]}
+  {\endlist}
+
+\bibliography{bibliography}
+\nocite{*}
+
+\input{listings}
+\input{preamble}
+
+\begin{document}
+
+\FrontMatter
+\ThesisTitlePage
+
+\include{./chapters/declaration}
+
+\MainMatter
+
+\tableofcontents
+
+\include{./chapters/introduction}
+\include{./chapters/wbem}
+\include{./chapters/openlmi}
+\include{./chapters/sssd}
+\include{./chapters/implementation}
+\include{./chapters/conclusion}
+\appendix
+
+\printbibliography
+
+\end{document} 
