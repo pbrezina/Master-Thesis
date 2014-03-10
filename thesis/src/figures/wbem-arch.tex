@@ -1,0 +1,37 @@
+\tikzstyle{process}=[draw, solid, sharp corners]
+\tikzstyle{ui}=[process, minimum height=6cm]
+\tikzstyle{server}=[process, minimum height=1.5cm, minimum width=6cm,
+    fill=yellow!40]
+\tikzstyle{provider}=[process, minimum height=1.5cm, minimum width=2cm,
+    fill=green!40]
+\tikzstyle{server-group}=[draw, dashed, rounded corners, fill=gray!10]
+\tikzstyle{resources}=[process, minimum height=1.5cm, minimum width=6cm,
+    fill=blue!30]
+\tikzstyle{other}=[process, minimum height=1.5cm, minimum width=2cm,
+    fill=green!20]
+
+\begin{tikzpicture}
+    \node (server-group) [server-group, matrix] {
+        \node (schema) [other, align=center] at (2cm, 3cm) {CIM \\ Schema};
+        \node (users) [other, align=center] at (-2cm, 3cm) {Access \\ Control};
+        \node (server) [server] at (0,0) {WBEM Server};
+        \node (provider1) [provider] at (-2cm, -3cm) {Provider};
+        \node (provider2) [provider] at (2cm, -3cm) {Provider};
+        \node (provider) at (0, -3cm) {\ldots};
+        \\
+    };
+    
+    \node (ui) [ui, align=center] at (-7cm, 0) {User \\ Interface};
+    \node (resources) [resources] at (0,-7cm) {Managed System Resources};
+    \node (os) [fill=blue!10, align=center, minimum width=6cm] at (0,-5cm)
+        {Operating System \\ Interface};
+    
+    \draw [latex-latex] (server.south) -- (0, -1.5cm) -| (provider1.north);
+    \draw [latex-latex] (server.south) -- (0, -1.5cm) -| (provider2.north);
+    \draw [latex-latex] (server.west) -- (ui.east)
+        node[midway, align=center, fill=red!20] {CIM-XML \\ over HTTP};
+    \draw [latex-latex] (provider1.south) -- ($ (resources.north) - (2cm, 0) $);
+    \draw [latex-latex] (provider2.south) -- ($ (resources.north) + (2cm, 0) $);
+    \draw [latex-latex] (schema.south) -- ($ (server.north) + (2cm, 0) $);
+    \draw [latex-latex] (users.south) -- ($ (server.north) - (2cm, 0) $);
+\end{tikzpicture}
