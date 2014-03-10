@@ -1,0 +1,390 @@
+\chapter{OpenLMI}
+\label{chapter:openlmi}
+
+OpenLMI (Open Linux Management Infrastructure) is a set of tools that simplifies
+monitoring and management of Linux machines through WBEM technology. Its goal is
+to unify configuration of all fundamental parts of Linux system, thus reducing
+the needs to understand the syntax and semantics of configuration files for
+every service.
+
+OpenLMI uses Open Pegasus as underlying WBEM implementation and adds several new
+providers that cover many important areas of common administration tasks like
+disk partitioning, network configuration, users and groups management, software
+installation and maintenance, event log, hardware information, etc.
+
+The project also provides several new client tools. Besides low level API and
+language bindings for C/C++, Java and Python it brings especially the LMI shell
+which is a client application that reflects all CIM objects into the Python
+language. This enables full access to remote objects and allows to use them
+natively in Python code. It also offers a set of LMI scripts that implements the
+most common tasks and completely hides the complexity of WBEM under simple
+commands.
+
+\subsubsection{Main features}
+
+\begin{itemize}
+  \item Open source project with active development
+  \item Linux-specific set of providers
+  \item Python-based LMI shell
+  \item Simplifies common task with single commands
+  \item API for C/C++, Java and Python
+\end{itemize}
+
+\section{LMI Providers}
+\label{openlmi:providers}
+
+OpenLMI project aims at delivering CIM providers that implements classes for
+monitoring and configuration of fundamental parts of Linux systems.
+These classes can be simply recognized in the CIM schema since name of all
+classes developed for this project starts with |LMI_| prefix.
+
+OpenLMI version 0.4.2\footnotemark contains the following providers: network,
+storage, fan, hardware, logicalfile, power, service, software, journald and
+realmd.
+
+\footnotetext{The current OpenLMI release at the time of this thesis.}
+
+\section{LMI Shell}
+\label{openlmi:shell}
+
+The LMI shell is a client application for OpenLMI. It works as a Python
+interpreter therefore it is capable of running any code written in this
+language. All remote CIM objects are reflected into a native Python objects,
+thus they can be simply accessed by using the language constructs.
+
+As a consequence of this feature, the operator does not have to deal with the
+complexity of WBEM communication mechanisms and data formats. The only knowledge
+required to use the shell is an elementary Python syntax and basic programming
+skills. However, the more fluent in the Python language the operator is the more
+powerful the shell becomes.
+
+The following section introduces some fundamental concepts of accessing OpenLMI
+from the shell.
+
+\subsection{Using the shell}
+\label{openlmi:shell:examples}
+
+This section contains set of example WBEM calls invoked from LMI shell
+environment and explanation of fundamental concepts of the shell. To enter the
+shell in interactive mode run the following command:
+
+\begin{lstlisting}[numbers=none]
+$ lmishell
+\end{lstlisting}
+\funclistend
+It is often useful to also append |--verbose| or |--more-verbose| arguments to
+the |lmishell| command to get some tracing and debugging information.
+
+\subsubsection{Establishing connection}
+\label{openlmi:shell:examples:connection}
+
+Before we start working with the providers we have to establish connection
+with a WBEM server.
+
+\begin{lstlisting}[]
+$ lmishell 
+> conn = connect("<host>", "<username>", "<password>")
+\end{lstlisting}
+\funclistend
+You can run any Python code in LMI shell. Therefore, to test whether the
+connection was successful or not we can use one of the following commands:
+
+\begin{lstlisting}[]
+> isinstance(conn, LMIConnection)
+True
+> conn is None
+False
+\end{lstlisting}
+\funclistend
+Now when we have successfully established the connection with CIMOM, we can
+start querying registered providers. The LMI shell reflects CIM namespace,
+classes and object into Python environment and makes those elements accessible
+via the instance of |LMIConnection|.
+
+In our examples, the CIM namespace is located at |conn.root.cimv2| path and all
+CIM classes registered withing the Object Manager are available under this
+namespace -- e. g. class |LMI_Service| can be accesses as
+|conn.root.cimv2.LMI_Service|.
+
+We will shorten the namespace part to |ns|, for the purpose of our examples.
+Thus the class will be accessible as |ns.LMI_Service|. We can achieve this in
+the shell with simple assignment:
+
+\begin{lstlisting}[]
+> ns = conn.root.cimv2
+\end{lstlisting}
+\funclistend
+There are several useful built-in functions in the shell that simplifies the
+manipulation with CIM objects and their associations.
+
+\subsubsection{Documentation}
+\label{openlmi:shell:examples:documentation}
+
+Documentation is a key property of WBEM world, since there are many classes
+with a lot of constrained properties and methods. This section introduces
+few ways how to obtain useful information.
+
+Shell command |help()| will print description for the LMI shell. If it
+is run with object as an argument, it will display verbose information about
+the Python (not CIM) object (e. g. |ns.LMI_Service|).
+
+Detailed information about selected CIM class can be displayed by running
+|<class>.doc()| command. For example, if we want to see the description of
+|LMI_Service|, we will execute |ns.LMI_Service.doc()|.
+
+\subsubsection{Acquiring class instances}
+\label{openlmi:shell:examples:instances}
+
+Instances of CIM classes provides information on the managed elements. We have
+two simple ways how to transfer these object from WBEM server to client. Those
+are the following static methods that are present in each class:
+
+\begin{funcproto}
+<class>.instances()
+\end{funcproto}
+\begin{funcdesc}
+This method returns an array of all instances of class |<class>|.
+\end{funcdesc}
+
+\begin{funcproto}
+<class>.instance_names() 
+\end{funcproto}
+\begin{funcdesc}
+This method is very similar to the first one except it returns a smaller objects
+that contain only key properties of given class. It may be used to reduce
+data transfer and operation time when you are interested only in a small
+amount of instances but you need to filter them out first.
+\end{funcdesc}
+\funclistend
+These methods have an optional parameter of dictionary type that specifies
+conditions that the returned instances have to fulfill. It is used to perform
+a simple search in the set of instances. The argument is in the form
+|{'Property': 'value', ...}|.
+
+Sometimes it is desirable to get only one instance, usually when we search for a
+unique combination of properties. For this purpose the previous methods have
+also their equivalents that return only one instance and that the first one
+found. The methods are:
+
+\begin{funcproto}
+<class>.first_instance()
+<class>.first_instance_name() 
+\end{funcproto}
+\funclistend
+Sometimes it is enough to work only with key properties of the object and then
+the instance name suffice, but it may be simply converted to full instance when
+needed with |<instance_name>.to_instance()| method.
+
+\subsubsection{Finding associations}
+\label{openlmi:shell:examples:associations}
+
+As described in \cmplref{wbem:cim:is}, associations represents relationships
+between objects. There are two ways how to work with these associations. We
+can either ask ``What objects are associated with this instance?'' or ``What
+associations is this object part of?''. Each instance provides methods that
+allow the operator to ask precisely those questions. These methods are:
+
+\begin{funcproto}
+<instance>.associators()| 
+\end{funcproto}
+\begin{funcdesc}
+This method returns all objects that are associated with the given object
+|<instance>| (i. e. it returns end-points of an association).
+\end{funcdesc}
+
+\begin{funcproto}
+<instance>.references()| 
+\end{funcproto}
+\begin{funcdesc}
+This method returns all associations that contains reference to the object
+|<instance>| (i. e. it returns instances of association classes).
+\end{funcdesc}
+\funclistend
+Similar to instances there are equivalent methods that return only first found
+element: |first_associator()| and |first_reference()|.
+
+
+These methods may take several parameters. One of these parameters is
+|ResultClass| which specifies what object types shall be looked up. More
+arguments can be found in OpenLMI documentation.
+
+\subsubsection{Managing system services}
+\label{openlmi:shell:examples:services}
+
+System services are represented as instances of |LMI_Service| class. This class
+provides basic information about the service and methods to change the state of
+the service -- i. e. start, stop, enable, disable, etc.
+
+At first we will list names of all services that are currently running on the
+system. State of the service is accessible through |Status| property and the
+value that symbolizes a correctly running service is |OK|.
+
+\begin{lstlisting}[]
+> for service in ns.LMI_Service.instances():
+...     if service.Status == "OK":
+...             print service.Name
+... 
+systemd-logind.service
+autofs.service
+systemd-vconsole-setup.service
+systemd-random-seed.service
+lvm2-lvmetad.service
+abrtd.service
+...
+\end{lstlisting}
+\funclistend
+We can also left filtering of the instances on OpenLMI by providing a dictionary
+argument to |instances()| or |first_instance()| method. 
+
+\begin{lstlisting}[]
+> filter = {'Status': 'OK'}
+> for service in ns.LMI_Service.instances(filter):
+...     print service.Name
+... 
+systemd-logind.service
+autofs.service
+systemd-vconsole-setup.service
+systemd-random-seed.service
+lvm2-lvmetad.service
+abrtd.service
+...
+> print ns.LMI_Service.first_instance(filter).Name
+systemd-logind.service
+\end{lstlisting}
+\funclistend
+Now we will try to restart all services that are in a wrong state.
+
+\begin{lstlisting}[]
+> filter = {'Status': 'Error'}
+> for service in ns.LMI_Service.instances(filter):
+...     print "Restarting service %s" % service.Name
+...     service.RestartService()
+... 
+\end{lstlisting}
+\funclistend
+The following example will enable |firewalld| service on system startup.
+
+\begin{lstlisting}[]
+> filter = {'Name': 'firewalld.service'}
+> service = ns.LMI_Service.first_instance(filter)
+> service.TurnServiceOn() 
+\end{lstlisting}
+
+\subsubsection{Managing accounts}
+\label{openlmi:shell:examples:accounts}
+
+Users on the system are represented by |LMI_Account| class and groups are
+instances of |LMI_Group|. Every user and group is associated with an instance of
+|LMI_Identity| which serves as a container for both users and groups. The
+purpose of this class is to have all system identities contained in one place.
+
+The next code will list all users that are present on the system and
+whose password is about to expire within the next two days.
+
+\begin{lstlisting}[]
+> for user in ns.LMI_Account.instances():
+...     if user.PasswordExpirationWarning is not None \
+...        and user.PasswordExpirationWarning <= 2:
+...             print user.Name
+... 
+pbrezina 
+\end{lstlisting}
+\funclistend
+The following example will print all groups that user |pbrezina| is a member of.
+At first, we need to acquire instance of this user's account. Then we have to
+find the identity the user is associated with. Next we use this identity to find
+all associated groups.
+
+We use |first_associator()| and |associators()| methods to find desired objects
+that are associated with our user and identity respectively. The attribute
+|ResultClass| specifies the type of which the end point of our association
+should be.
+
+\begin{lstlisting}[]
+> filter = {'Name': 'pbrezina'}
+> acc = ns.LMI_Account.first_instance(filter)
+> ident = acc.first_associator(ResultClass='LMI_Identity')
+> for group in ident.associators(ResultClass='LMI_Group'):
+...     print group.Name
+... 
+vmusers
+pbrezina
+\end{lstlisting}
+
+\section{LMI Scripts}
+\label{openlmi:scripts}
+
+OpenLMI defines a Python interface that allows to run any sophisticated code
+implementing this interface as one simple command on command line through |lmi|
+application.
+
+OpenLMI team develops and maintains a set of scripts that follows this
+interface. These scripts aim on simplification of the common use cases of
+existing LMI providers thus administrators do not have to deal with Python code,
+CIM instances and associations for basic tasks.
+
+The following section introduces few examples of this feature.
+
+\subsection{Examples}
+\label{openlmi:scripts:examples}
+
+The first example shows how to print available commands and their usage. There
+is one universal command |help| for this purpose.
+
+\begin{lstlisting}[]
+$ lmi help
+Commands:
+  hwinfo         - Display hardware information.
+  power          - System power state management.
+  service        - System service management.
+  user           - POSIX user information and management.
+
+For more informations about particular command type:
+    help <command>
+
+$ lmi help service
+System service management.
+
+Usage:
+    lmi service list [(--enabled | --disabled)]
+...
+\end{lstlisting}
+\funclistend
+The next listing contains an example of how to list enabled services and
+their state and how to obtain information about a user.
+
+\begin{lstlisting}[]
+$ lmi -h <host> --user <user> service list --enabled
+password:
+Name                      Status
+abrtd                     Running
+acpid                     Running
+auditd                    Running
+autofs                    Running
+ntpd                      Stopped - OK
+...
+
+$ lmi -h <host> --user <user> user show pbrezina
+password:
+Name     UID Home           Login shell Password last change
+pbrezina 529 /home/pbrezina /bin/bash   2013/10/10
+\end{lstlisting}
+\funclistend
+Instead of providing only one host to connect to, we can provide a whole set
+of hosts and execute the same command on each host at once. The following
+example demonstrates this ability by rebooting all machines listed in file.
+\begin{lstlisting}[]
+$ cat hosts
+host1.example.com
+host2.example.com
+...
+hostN.example.com
+
+$ lmi --hosts-file hosts --user <user> --same-credentials \
+>     power reboot
+password:
+\end{lstlisting}
+\funclistend Parameter |--same-credentials| will ensure that the password
+provided at the first prompt will be used to authenticate on every host from the
+file, instead of asking for each host separately.
+
