@@ -1,0 +1,28 @@
+\begin{tabular}{l l}
+\multicolumn{2}{c}{\textbf{When it is triggered (by default)}} \\
+\hline\hline
+Full refresh & every six hours or when a rule is deleted from the cache \\
+\hline
+Smart refresh & every fifteen minutes \\
+\hline
+Rules refresh & when user runs sudo, rules expires after ninety minutes \\
+\hline
+\multicolumn{2}{c}{} \\
+\multicolumn{2}{c}{\textbf{What is its purpose}} \\
+\hline\hline
+Full refresh & to keep the cache consistent \\
+\hline
+Smart refresh & store new a update modified rules \\
+\hline
+Rules refresh & do not grant user more privilege \\
+\hline
+\multicolumn{2}{c}{} \\
+\multicolumn{2}{c}{\textbf{What operations does it perform}} \\
+\hline\hline
+Full refresh & insert, delete \\
+\hline
+Smart refresh & insert, modify \\
+\hline
+Rules refresh & modify, delete \\
+\hline
+\end{tabular}

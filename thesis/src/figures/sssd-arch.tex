@@ -1,0 +1,102 @@
+\tikzset{%
+  cascaded/.style = {%
+    general shadow = {%
+      shadow scale = 1,
+      shadow xshift = -2ex,
+      shadow yshift = 2ex,
+      draw,
+      fill = white},
+    general shadow = {%
+      shadow scale = 1,
+      shadow xshift = -1ex,
+      shadow yshift = 1ex,
+      draw,
+      fill = white},
+    fill = white, 
+    draw}}
+    
+\tikzstyle{database}=[
+    cylinder,
+    cylinder uses custom fill,
+    cylinder body fill=gray!20,
+    cylinder end fill=gray!10,
+    shape border rotate=90,
+    aspect=0.25,
+    draw,
+    minimum height=4em
+]
+\tikzstyle{process}=[draw, solid, sharp corners]
+\tikzstyle{process-node}=[minimum height=2em, minimum width=4em,
+    text height=1.5ex, text depth=.25ex, fill=yellow!10]
+\tikzstyle{process-group}=[draw, dashed, rounded corners, fill=blue!10]
+\tikzstyle{dp-process}=[process, cascaded, fill=gray!10]
+\tikzstyle{dp-module}=[process, process-node]
+\tikzstyle{resp-process}=[process, process-node]
+\tikzstyle{monitor-process}=[process, process-node, fill=red!30]
+\tikzstyle{client-process}=[process, fill=gray!10]
+\tikzstyle{client-module}=[process, process-node]
+
+\tikzstyle{sensor}=[draw, fill=blue!20, text width=5em, 
+    text centered, minimum height=2.5em]
+\tikzstyle{ann} = [above, text width=5em]
+\tikzstyle{naveqs} = [sensor, text width=6em, fill=red!20, 
+    minimum height=12em, rounded corners]
+
+% Define distances for bordering
+\def\blockdist{2.3}
+\def\edgedist{2.5}
+
+\begin{tikzpicture}
+    \node (monitor) [monitor-process] {Monitor};
+
+    \node (dp) [dp-process, matrix, below of=monitor, below=3em, anchor=north] {
+        \node (id) [dp-module] {Id};
+        \node (auth) [dp-module, right of=id, anchor=west] {Auth};
+        \node (chpass) [dp-module, right of=auth, anchor=west] {Chpass};
+        \node (access) [dp-module, right of=chpass, anchor=west] {Access};
+        \node (sudo) [dp-module, below of=id] {Sudo};
+        \node (autofs) [dp-module, below of=auth] {Autofs};
+        \node (center) [right of=autofs, anchor=center] {};
+        \node (subdom) [dp-module, below of=chpass] {Subdom};
+        \node (host) [dp-module, below of=access] {Host};
+        \node (dp-name) [below of=center, anchor=center] {Data Provider}; \\
+    };
+    
+    \node (responders) [process-group, matrix, below of=dp, below=5em,
+                        anchor=north] {
+        \node (nss) [resp-process] {nss};
+        \node (pam) [resp-process, right of=nss, anchor=west] {pam};
+        \node (sudo) [resp-process, right of=pam, anchor=west] {sudo};
+        \node (center) [right of=sudo, anchor=center] {};
+        \node (autofs) [resp-process, right of=sudo, anchor=west] {autofs};
+        \node (ssh) [resp-process, right of=autofs, anchor=west] {ssh};
+        \node (pac) [resp-process, right of=ssh, anchor=west] {pac};
+        \node [below of=center, anchor=center] {Responders}; \\
+    };
+
+    \node (clients) [client-process, matrix, below of=responders, below=4em,
+        anchor=north] {
+        \node (libs) [client-module] {client library};
+        \node [below of=libs, anchor=north]
+            {NSS, PAM, \ldots}; \\
+    };
+    
+    \node (mc) [process, below of=responders, below right=2em, anchor=west,
+        fill=green!30]
+        {Fast in-memory cache};
+    
+    \node (ldap) [database, right of=monitor, right=11em] {LDAP};
+    \path let \p1 = (dp), \p2 = (ldap) in
+        node (sysdb) [database, cylinder body fill=yellow!50, cylinder end
+        fill=yellow!30] at (\x2,\y1) {Cache};
+    
+    \draw [latex-latex] (responders) -- (dp);
+    \draw [dotted, -latex] (monitor) -- (dp);
+    \draw [dotted, -latex]
+        (monitor) -| ($ (responders.north west) + (2em, 0) $);
+    \draw [latex-latex] ($ (dp.north east) - (2em, 0) $) |- (ldap);
+    \draw [latex-latex] (dp.east) -- (sysdb);
+    \draw [latex-] (responders.east) -| (sysdb);
+    \draw [latex-latex] (responders.south) -- (libs.north);
+    \draw [latex-latex] (libs.east) -| (mc.south);
+\end{tikzpicture}

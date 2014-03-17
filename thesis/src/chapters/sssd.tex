@@ -1,0 +1,384 @@
+\chapter{System Security Services Daemon}
+\label{chapter:sssd}
+
+System Security Services Daemon (SSSD)\footnote{SSSD upstream:
+\url{https://fedorahosted.org/sssd}} is a set of background processes that
+are responsible for providing and caching identity\footnote{User and groups,
+services, automounter maps\ldots}
+and policy\footnote{Sudo rules, SSH host keys, \ldots} objects from a central
+directory server. Its main goal is to cache this information so it remains
+available in an offline mode (when the directory server is not accessible) but
+still keep serving up to date data when possible. Since communication with
+remote directory server is slow in general, it is always a compromise between
+data accuracy and a response speed.
+
+SSSD puts stress on a response speed for publicly accessible data, but tries
+to be as much accurate as possible with information that brings up potentional
+security vulneralibities. For example identity information such as user names
+and group membership are always returned from cache, unless the records are
+expired. On the other hand, user authentication is always performed directly
+against directory server (or Kerberos) as long as it is reachable. Also those
+information remains in the cache until SSSD is positive that it was removed
+from database, thus the scenario when a user is unable to login into his or her
+laptop because it was offline for a long time and cached data has expired simply
+can not happen. Besides many more features, this caching mechanism is one of
+the huge advantages over |nslcd|\footnote{De facto standard daemon that caches
+NSS-LDAP results, which is currently being replaced by SSSD on many Linux
+distributions.}.
+
+\section{Main features}
+\label{sssd:main-features}
+
+SSSD is an open source project with very active upstream development and
+community. Since it has already mastered fundamental identity tasks, the current
+focus is mainly on the field of Active Directory integration -- or in other
+words, using UNIX-based systems as clients in Microsoft Windows domain. SSSD
+has many mature features, here is a list of the most important ones:
+
+\begin{itemize}
+  \item An open source project with active upstream development and community
+  \item Better caching mechanism than |nslcd|
+  \item In addition to identity information it also manages services, autofs
+        maps, sudo rules, SSH host keys
+  \item Integration with Kerberos -- automatic ticket renewal, seemingless
+        ticket request during transition to online mode, \ldots
+  \item Integration with FreeIPA -- IPA sites, host based access control,
+        cross-domain trusts, \ldots
+  \item Integration with Active Directory -- AD sites, trusts, SID to POSIX ID
+        mapping, evaluation of token groups, \ldots
+  \item Dynamic DNS updates 
+\end{itemize}
+
+\section{Architecture}
+\label{sssd:arch}
+
+SSSD consists of multiple processes running on system level and several client
+libraries. The processes are: monitor, one or more data providers and one or
+more responders. Graphical representation of all those parts can be seen on
+Figure \ref{fig:sssd-arch}.
+
+Monitor can be considered as some sort of SSSD manager. It is responsible for
+the life cycle of all the other processes -- it starts them, signals them,
+kills them and also reboots them in case of an error.
+
+The task of a data provider is to fetch data from directory server, store them
+in cache and keep them up to date. Depanding on the object type, records may
+be downloaded either per request triggered by responder or some other outer
+event or it can be done periodically in the background. There is one data
+provider running for each domain.
+
+Responders represent supported services like NSS user and group maps, sudo
+policy, PAM authentication, etc. Each service has its own responder. It listens
+for client's request and when it comes, it searches the cache and report
+requested records back to the client.
+
+Finally, the client libraries are light-weight libraries that implement
+pluggable interface of target application. Its only goal is to be a middle-man
+between the application and SSSD responder, i.e. it sends request to responder
+and receives reply which is then served to the caller.
+
+Different parts of SSSD use different inter-process communication methods.
+Monitor communicates with other processes either via signals or it uses D-Bus
+for more sophisticated messages. Communication between responders and data
+providers is performed through D-Bus interface only. On the other hand,
+communication of client libraries and responders is done via sockets to keep
+client libraries as light-weight as possible.
+
+\begin{figure}[H]
+  \centering
+  \input{./figures/sssd-arch}
+  \caption{Architecture of SSSD}
+  \label{fig:sssd-arch}
+\end{figure}
+
+\section{Cache management}
+\label{sssd:cache}
+
+As was already said, the cache is filled by data providers and consumed by
+responders. This is due to asynchronous nature of SSSD -- one process can
+still serve data to other clients while simultaneously the other process stores
+new or updates existing records.
+
+SSSD has implemented several caching techniques that aims to improve the ratio
+between data consistency and response speed. Since every object type requires a
+little bit of individual approach, not all mechanisms are always used. This
+section will introduce all methods from basic expiration time and negative cache
+through mid-point refresh and all the way to sophisticated out of band and
+background periodic updates.
+
+\subsection{Record expiration}
+\label{sssd:cache:expiration}
+
+Record expiration is the most basic approach to cache management. Simply put,
+each entry in the cache has associated a timestamp after which is the entry
+marked as expired -- but not invalid. When a client requests an expired object,
+the further actions depends on immediate accessibility of directory server. If
+SSSD is in online mode -- it can connect to the server -- it will first update
+the object and then return it. However, if the server is unreachable, SSSD will
+simply return what is contained within the cache.
+
+Expired records are only deleted from the cache if SSSD will not find them on
+the directory server. Thus as long as SSSD is in offline mode, they will remain
+accessible and usable.
+
+\subsection{Negative cache}
+\label{sssd:cache:negative}
+
+Negative cache is a special in-memory cache for negative results. If the
+requested record is not found, it is stored in the negative cache for a short
+time span, making all successive requests that falls into this period as fast
+as possible.
+
+Some special users and groups are stored in this cache permanently for the whole
+SSSD life time. This is usually used to filter out local users and groups which
+are not handled by SSSD. For example the |root| account is present in the
+negative cache by default. Therefore any request for information about |root|
+quickly shortcuts to ``entry not found'' result, making the caller try the next
+NSS |passwd| source.
+
+\subsection{Mid-point refresh}
+\label{sssd:cache:midpoint}
+
+Mid-point refresh is an out of band refresh in the middle of the expiration
+period. If a request is raised before the record is expired but after a
+configured percent of its expiration time is reached, it is returned
+immediately. However, at the same time it is also being refreshed at the
+background.
+
+This mechanism guarantees a cache-hit for objects that are being frequently
+requested, making the queries fast, without contacting any remote server.
+
+\subsection{Periodic updates}
+\label{sssd:cache:periodic}
+
+Periodic updates are events triggered periodically on the background by data
+provider. They purpose is to update a larger set of records at once or to
+download all new records that are not yet contained within the cache.
+
+These updates usually uses |entryUSN|\footnotemark attribute or last modification
+timestamp of an entry to detect those objects that were modified or newly added
+on the server since the last update was performed.
+
+Currently the following periodic updates are implemented: enumeration, refresh
+of records that are about to expire and refresh of sudo rules. The last one is
+described in its own section (\cmplref{sssd:cache:sudo}).
+
+\footnotetext{Special attribute supported by modern directory servers. It
+contains a unique number that represents modification sequence of records
+stored on the server. Id est record with lower entryUSN value is older than
+record with higher value.}
+
+\subsubsection{Enumeration}
+\label{sssd:cache:periodic:enum}
+
+Enumeration is a special task that simply stores and keeps up to date all
+records of standard NSS maps like users, groups and services. It is used to make
+enumeration commands (those that list all or many of NSS objects at once) fast
+-- for example listing |/home| directory or running |getent passwd| command. If
+all users had to be yet downloaded from LDAP server, it could take very long
+time to finish, depending on the size of the environment. This task will
+pre-fetch them, making those commands much faster -- from several minutes (or
+even tens of minutes) to a few seconds.
+
+This, however, comes with a price. Periodic updates of thousands of users and
+groups and they membership evaluation triggers significant amount of network
+traffic and processor time on both server and client side. Thus enumeration is
+disabled in SSSD by default and administrators are in general discouraged from
+using it unless it is really necessary.
+
+\subsubsection{Nearly expired records}
+\label{sssd:cache:periodic:expired}
+
+This is a very specific periodic update. Its intention is to keep all records in
+the cache up to date in such way that these records never expire. It takes all
+records that are about to expire within the next period and re-downloads them.
+
+At the time of this thesis, this refresh type is only implemented for netgroups.
+Its purpose is to reduce user login time in large enterprise environments with
+thousands of netgroups organised in a complex nested topology. Without this
+update, a user signing in may trigger a refresh of all these expired netgroups
+which may take several minutes. That is unacceptable, enabling this update
+reduces login time back to seconds.
+
+\subsection{Fast in-memory cache}
+\label{sssd:cache:memory}
+
+In addition to standard SSSD cache, users and groups also use small in-memory
+cache that is accessible directly by client libraries. This cache may be
+understood as L1-L3 cache memories used in modern processors.
+
+If client library finds requested object in in-memory cache, it returns it
+directly without communicating with proper responder. Records stored in
+this cache have a relatively short lifetime -- only few minutes -- after that
+the records are invalid and need to be fetched again from the responder.
+
+The purpose of this cache is to make listing commands as fast as possible,
+since it often queries same user or group over and over again thus cutting down
+the communication between client library and responder to necessary minimum is
+a nice benefit.
+
+\subsection{Caching of sudo rules}
+\label{sssd:cache:sudo}
+
+Sudo rules are very specific objects from the point of SSSD. They creates a
+potential security risk since you do not want to allow a user to use sudo unless
+he is really supposed to. However at the same time it is not possible to go
+directly to a server every time sudo is used as it is done with user
+authentication, since the nature of sudo is that there are usually several
+successive sudo commands in a short time thus it is simply not acceptable to
+wait several seconds at each command -- a cache has to be used.
+
+This makes caching of sudo rules quite a challenge because they are supposed to
+be as much up to date as possible but also keeping good responsiveness of sudo
+command. For this purpose a combination of periodic and event based updates
+was designed. These updates are called full refresh, smart refresh, rules
+refresh and out of band full refresh of sudo rules. Each of them has different
+purpose and their explanation follows.
+
+\subsubsection{Full refresh}
+\label{sssd:cache:sudo:full}
+
+Full refresh is a periodic task and does exactly what its name suggest -- it
+downloads a complete image of sudo rules stored on the server and replaces
+everything that is contained withing the cache with new content. This refresh is
+used mainly to detect rules that were removed from the server and make sure
+that those rules are also deleted from the cache.
+
+Possible disadvantage is that it may produce a non-trivial network traffic,
+depanding on the size of the environment, thus it is supposed to have a long
+period -- by default 6 hours is used.
+
+\subsubsection{Smart refresh}
+\label{sssd:cache:sudo:smart}
+
+Smart refresh is another periodic update. It is responsible for keeping current
+rules stored in the cache up to date and expanding the cache with newly added
+rules. It uses |entryUSN| attribute or last modification timestamp if the first
+one is not present to detect those modified or new rules.
+
+Unlike full refresh, smart refresh never deletes any rules from the cache. And
+since it checks only for a difference it usually creates only a negligible 
+network usage so it is possible to run this refresh type frequently. 
+
+\subsubsection{Rules refresh}
+\label{sssd:cache:sudo:rules}
+
+This type corresponds to basic record expiration. When a user wants to perform a
+sudo command, sudo responder retrieves all rules that can be possibly applied to
+this user and issues an update request for all expired rules from this set.
+Purpose of this refresh is to ensure that SSSD does not allow any unauthorized
+access (i. e. when a rule was removed from the server).
+
+\subsubsection{Out of band full refresh}
+\label{sssd:cache:sudo:oob}
+
+Sudo rules are usually very stable, they are rarely modified and rarely deleted.
+Thus when SSSD detects that one rule has been deleted, it takes it as a sign
+that more changes could have been done on the server. Therefore when the rules
+refresh ends up with removing a rule from the cache an out of band full refresh
+is triggered ensuring the cache consistency.
+
+\subsubsection{Summary of sudo refresh types}
+\label{sssd:cache:sudo:summary}
+
+All sudo refresh methods are usually used altogether to provide the best
+possible experience when running sudo with SSSD as its data source. However, it
+is important for administrators to understand how they work separately so they
+can configure the daemon appropriately for needs of their environment. The Table
+\ref{table:sssd-sudo-refresh} compares the most important features of those
+refresh types.
+
+\begin{table}[H]
+  \centering
+  \input{./tables/sssd-sudo-refresh}
+  \caption{Comparison of sudo rules refresh methods}
+  \label{table:sssd-sudo-refresh}
+\end{table}
+
+\section{Data Providers}
+\label{sssd:providers}
+
+Main purpose of data provider is to populate cache with required data and keep
+those information as much up to date as it is possible. Another and not any less
+important task is to perform user authentication directly against remote server.
+It is the most privileged process in SSSD since it is the only one that is
+permitted to write data into the cache and it is also the only part of the
+daemon that is actually allowed to communicate with remote resources like Active
+Directory, IPA, legacy directory server, Kerberos server, etc.
+
+Data provider internally consist of several modules. Each module is responsible
+for different task. For example identity module manages user accounts and
+groups, authentication module performs authentication, access module checks if a
+user have enough permissions to sign into a local machine, sudo module caches
+sudo rules, etc.
+
+Every module can use different data source, or back-end in SSSD's terminology.
+The back-end usually specifies type of directory server used: either legacy
+LDAP, IPA or Active Directory. However, some modules also allows a special
+back-ends, especially those that deals with user authorization. For example
+authentication module can be configured either to perform bind against directory
+server or to acquire Kerberos ticket. Access provider can use advanced LDAP
+based access control list or simple user and group white list or black list.
+
+\section{Responders}
+\label{sssd:responders}
+
+The key task of responder processes is to satisfy all requests from clients with
+corresponding information stored within the cache. Compared to data providers
+where each process represents one domain and maintains data for all of its
+supported services, responders works in exactly opposite direction. There exists
+one responder for every enabled SSSD service (NSS, PAM, sudo, etc.), that reads
+the service-related data from multiple domains.
+
+The multi-domain search works as a first match method. Responder iterates
+through domains and the first domain that contains the requested object is used
+unless a fully qualified object name is provided (i. e. both object name and
+domain name) -- in that case only the given domain is searched. Listing
+\ref{lst:sssd:responder} shows a pseudocode for multi-domain search of user by
+name.
+
+\begin{lstlisting}[caption={Multi-domain lookup (get user by name)},
+morekeywords={end, fi, each},label=lst:sssd:responder]
+responder receives a request containing username
+for each domain
+    user := lookup user by username in domain;
+    if user is not found or is expired
+        let data provider of this domain look it up;
+        user := lookup user by username in domain;
+        if user is not found
+            continue;
+        fi
+    fi
+
+    return user;
+end for
+\end{lstlisting}
+
+It is worth to note that responder has the cache opened only in read-only mode
+and it never contacts any remote server. If it finds out that some record should
+be refreshed or that it does not have all information that is required to
+satisfy client's request it triggers an update process in data provider of
+selected domain. When the update is finished it reads the cache again for new
+data.
+
+\section{Client applications and libraries}
+\label{sssd:clients}
+
+Client applications are third party applications, consumers of SSSD managed
+data. They usually provide a pluggable interface that is used to extend their
+functionality or to choose different data source. SSSD implements this interface
+in a client library that is then dynamically loaded by target programs. The
+library is supposed to be as much light-weight as possible to minimize necessary
+overhead, therefore it tries to be very small and does not use any additional
+dependencies unless they are really required.
+
+The goal of such library is to be a middle-man between SSSD responder and the
+consumer. Some of the client libraries (like |libsss_nss|) implements additional
+level of caching, but the main purpose is only to communicate with proper
+responder to obtain requested data and transfer this information in a format
+that is understood by destined application.
+
+When compared to communication inside SSSD where a D-Bus is used to transfer
+commands and data, to speed thing up the communication between client library
+and responder is performed via a socket, using a wired protocol appropriately
+selected for the type of transferred data.
