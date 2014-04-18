@@ -8,11 +8,11 @@ environments -- from low level process, network or storage management to higher
 level view on system state and configuration of specific components and
 provided services.
 
-Every managed element is looked upon as an object with attributes and
-methods. WBEM defines how the objects look like, how to transfer them over a
-network and how to call methods on them. It also defines a standard set of
-supported resources and provides a base templates to help extending this
-set with proprietary or open solutions.
+Every managed element is looked upon as an object with attributes and methods.
+WBEM defines how the objects look like, how to transfer their representation
+over a network and how to call methods on these objects. It also defines a
+standard set of supported resources and provides base templates to help
+extending this set with proprietary or open solutions.
 
 To achieve its goal, WBEM widely reuses other DMTF standards, mainly Common
 Information Model (CIM) which provides the tools for description of managed
@@ -21,10 +21,10 @@ is, however, quite loose on implementation details as it does not specify
 several key things to make the management really independent on underlying
 technologies and software components. For example, it does not specify a
 protocol to transfer objects over a network or any specific server architecture.
-WBEM is basically a standardized implementation of CIM which fills these holes
-by defining new standards like CIM-XML transfer protocol or by declaring that a
-server has to be split into a controller and providers that take care of
-selected components.
+WBEM is basically a standardized implementation of CIM which eliminates these
+weak points by defining new standards like CIM-XML transfer protocol or by
+declaring that a server has to be split into a controller and providers that
+take care of selected components.
 
 Besides these it also incorporates other standards that help WBEM to fit into
 enterprise environments such as Service Location Protocol to locate WBEM servers
@@ -43,6 +43,20 @@ specify any particular user interface, therefore any kind of command line,
 graphical or browser user interface can be used to manage remote resources. The
 architecture is illustrated on Figure \ref{fig:wbem-arch}.
 
+\begin{figure}[H]
+  \centering
+  \input{./figures/wbem-arch}
+  \caption{Architecture of WBEM}
+  \label{fig:wbem-arch}
+\end{figure}
+
+\subsection{Components}
+
+This section briefly describes the fundamental components of WBEM standard
+in bottom-up order.
+
+\subsubsection{CIM schema}
+
 CIM schema defines a set of managed objects. It describes how the objects look
 like: what attributes do they have, what methods they support and what are the
 relationships between those objects. For this purpose Common Information Model
@@ -50,11 +64,15 @@ standard and its conceptual object oriented language called Managed Object
 Format (MOF) are used. More information on these standards can be found in
 Section \ref{wbem:cim}.
 
-Provider is a server module that implements selected parts of the CIM schema. It
-basically creates a mapping between operating system resources into a format
-understood by the server. Many providers are dependent on underlying
+\subsubsection{WBEM provider}
+
+Provider is a server module that implements selected components of the CIM
+schema. It basically creates a mapping between operating system resources into a
+format understood by the server. Many providers are dependent on underlying
 operating system, since each system has usually different interface to access
 its objects -- especially the low level ones.
+
+\subsubsection{WBEM server}
 
 WBEM server, which is also often called CIM Object Monitor (CIMOM), is the
 access point between a client and the providers. It handles user authentication
@@ -62,6 +80,8 @@ and authorization and it uses the schema to route commands and data into a
 particular provider and to call selected method to complete the operation.
 Depending on implementation, it may also contain a simple persistent database to
 be used by the providers.
+
+\subsubsection{Provider interface}
 
 The WBEM standard itself does not specify any particular programming interface
 between the providers and CIMOM thus basically every implementation defines its
@@ -77,26 +97,20 @@ For communication between a client and the server the CIM objects and commands
 are packed into an XML format (so called CIM-XML) and the payload is being
 transferred over a standard HTTP protocol.
 
-\begin{figure}[H]
-  \centering
-  \input{./figures/wbem-arch}
-  \caption{Architecture of WBEM}
-  \label{fig:wbem-arch}
-\end{figure}
-
 \subsection{Workflow}
 \label{wbem:architecture:workflow}
 
 At first, the operator will issue a command through selected user interface.
 This command is packed into a CIM-XML format and sent over an HTTP protocol to
-WBEM server. The server performs user authentication and checks whether the user
-can perform the desired command. Then it reads the CIM schema and decides to
-what provider should be the command forwarded. The request is then processed by
-the selected provider, result is returned to the server and the server sends it
-back to the client -- again using CIM-XML over HTTP. The returned value can be
-either a simple value (number, string, boolean, \ldots), some of the predefined
-error codes (access denied, operation not supported, invalid arguments, \ldots)
-or the whole object described by its attributes.
+WBEM server. The server then performs user authentication and checks whether the
+user is authorized to perform the desired command. If the access is granted to
+the user, the server reads the CIM schema and decides to what provider should be
+the command forwarded. The request is then processed by the selected provider,
+the result is returned to the server and the server sends it back to the client
+-- again using CIM-XML over HTTP. The returned value can be either a simple
+value (number, string, boolean, \ldots), some of the predefined error codes
+(access denied, operation not supported, invalid arguments, \ldots) or the whole
+object described by its attributes.
 
 \section{Common Information Model}
 \label{wbem:cim}
@@ -105,11 +119,11 @@ Common Information Model (CIM) is an open standard that defines how to represent
 managed resources as a set of objects and relationships between them and how to
 exchange information about these elements between multiple parties.
 
-CIM is split into two parts: an Infrastructure Specification
-(\ref{wbem:cim:is}) and CIM schema (\ref{wbem:cim:schema}).
-Infrastructure Specification defines architecture and concepts of CIM. Schema
-is then a huge set of predefined classes that pursue the needs of enterprise
-environments.
+CIM is split into two parts: an Infrastructure Specification (\ref{wbem:cim:is})
+and CIM schema (\ref{wbem:cim:schema}).
+Infrastructure Specification defines architecture and concepts of CIM. The
+schema is then a huge set of predefined classes that pursue the needs of
+enterprise environments.
 
 \subsection{CIM Infrastructure Specification}
 \label{wbem:cim:is}
@@ -141,13 +155,13 @@ cover most of the needs of enterprise environments. The schema is split into
 three categories: the Core Schema, Common Schemas and Extension Schemas.
 
 The Core Schema is a base model. It provides classes and associations that are
-applicable to all areas of management. Those elements usually serve as a base
+shareable within all areas of management. Those elements usually serve as a base
 classes to be derived from to create more precise description of specific
-resources. Example of such class is |CIM_ManagedElement| which provides basic
+resources. An example of such class is |CIM_ManagedElement| which provides basic
 information about managed element such as its name, description and generation.
 This class should be on top of an inheritance tree for all managed elements.
 
-Common Schemas provide a more specific classes for common management areas such
+Common Schemas provide more specific classes for common management areas such
 as network configuration, processes and services maintenance, storage,
 databases, accounts, etc. These classes, however, are designed generically
 enough to be independent on any underlying technology and lack any
@@ -174,8 +188,9 @@ type or a reference to a class in case of an association.
 \subsubsection{Class declaration}
 \label{wbem:cim:mof:class}
 
-Class declaration follows a typical syntax enriched by qualifiers. Qualifiers
-can apply to every class, attribute, method or method argument declaration.
+Class declaration follows a common syntax of modern object oriented languages.
+This syntax is enriched by qualifiers which can be applied to every class,
+attribute, method or method argument declaration.
 
 \begin{lstlisting}[caption={MOF class declaration},
 label=lst:wbem:mof:class]
@@ -191,15 +206,20 @@ class ClassName : SuperClass
 };
 \end{lstlisting}
 
-Qualifiers specify nature of the element. For example an argument may be marked
-as input or output. Attribute may be qualified as a |Bitmap|, meaning that every
-bit of the attribute has some specific interpretation. Another qualifier called
-|BitValues| can specify how the bits shall be interpreted. It may also be used
-to specify minimum (|MinValue|) or maximum value (|MaxValue|) of an numeric
-attribute or argument. Very common qualifier is |Description| that provides
-documentation of the class element. Another important qualifier is |Key| that
-marks an attribute or a set of attributes as unique in all existing instances of
-the same class and it is used as a part of the instance address.
+Qualifiers are a widely used concept in CIM, since they are not only used as
+guidelines for code editors but they main purpose is to specify the nature of
+the qualified element -- how it should be interpreted, value range and other
+conditions.
+
+For example, an argument may be marked as input or output. Attribute may be
+qualified as a |Bitmap|, meaning that every bit of the attribute has some
+specific interpretation. Another qualifier called |BitValues| can specify how
+the bits shall be interpreted. It may also be used to specify minimum
+(|MinValue|) or maximum value (|MaxValue|) of an numeric attribute or argument.
+Very common qualifier is |Description| that provides documentation of the class
+element. Another important qualifier is |Key| that marks an attribute or a set
+of attributes as unique in all existing instances of the same class and it is
+used as a part of the instance address.
 
 The following example shows an abstract class representing a person. This class
 cannot be instantiated and serves as a base class for classes |Man| and |Woman|.
@@ -260,7 +280,7 @@ children that came up from this marriage.
 label=lst:wbem:mof:association]
 [Association,
  Description("Married couples.")]
-class MarriedPersons
+class MarriedCouples
 {
     [Key, Max(1)]
     Man REF Husband;
@@ -285,7 +305,7 @@ morekeywords={instance, of, as}]
 instance of Man as $Adam
 {
     NationalIdentificationNumber = 8807014142;
-    FirstName = "Colin";
+    FirstName = "Adam";
     LastName = "Hunt";
 
     DayOfBirth = 1;
@@ -318,21 +338,21 @@ instance of MarriedPersons
 \section{Overview of existing implementations}
 \label{wbem:implementations}
 
-There exists several open source and proprietary projects that implement the
-Web-Based Enterprise Management on different scale. A small overview of the most
-notable ones follows.
+Several open source and proprietary projects exist that implement the Web-Based
+Enterprise Management on different scale. A small overview of the most notable
+ones follows.
 
 \subsection{SBLIM}
 \label{wbem:implementations:sblim}
 
 SBLIM (pronounced Sublime; acronym for Standards Based Linux Instrumentation for
 Manageability) is a collection of open source system management tools that
-enables WBEM on Linux systems. It brings the whole set of products from a client
-through a set of providers and C and Java language bindings to a server.
+enables WBEM on Linux systems. It brings the whole set of components from a
+client through a set of providers and C and Java language bindings to a server.
 
-The most interesting feature of this project is the CIMOM: Small Footprint CIM
+An interesting feature of this project is the CIMOM: Small Footprint CIM
 Broker (SFCB) that has a memory footprint less than one megabyte which makes it
-possible to run it on a small embedded systems.
+possible to run it on small embedded systems.
 
 \subsection{WBEM Services}
 \label{wbem:implementations:wbemservices}
@@ -356,6 +376,6 @@ WMI using COM/DCOM API interface since WMI does not support CMPI.
 OpenLMI (Open Linux Management Infrastructure) is an emerging open source
 project that brings together multiple existing pieces of WBEM stack and also
 adds several new tools like an LMI shell with Python based syntax. Besides that
-it brings many Linux specific providers and more are about to come. It aims to
-be a new standard for Linux environments that will redefine current ways of
+it brings many Linux specific providers and more are about to come. OpenLMI aims
+to be a new standard for Linux environments that will redefine current ways of
 configuration of system components.
