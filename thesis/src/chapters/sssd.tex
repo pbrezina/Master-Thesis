@@ -9,20 +9,20 @@ and policy\footnote{Sudo rules, SSH host keys, \ldots} objects from a central
 directory server. Its main goal is to cache this information so it remains
 available in an offline mode (when the directory server is not accessible) but
 still keep serving up to date data when possible. Since communication with
-remote directory server is slow in general, it is always a compromise between
+remote directory server is slow in general, there is always a compromise between
 data accuracy and a response speed.
 
-SSSD puts stress on a response speed for publicly accessible data, but tries
-to be as much accurate as possible with information that brings up potentional
-security vulneralibities. For example identity information such as user names
-and group membership are always returned from cache, unless the records are
-expired. On the other hand, user authentication is always performed directly
+SSSD puts stress on a response speed for publicly accessible data, but tries to
+be as much accurate as possible with information that brings up potentional
+security-sensitive decisions. For example, identity information such as user
+names and group membership are always returned from cache, unless the records
+are expired. On the other hand, user authentication is always performed directly
 against directory server (or Kerberos) as long as it is reachable. Also those
-information remains in the cache until SSSD is positive that it was removed
-from database, thus the scenario when a user is unable to login into his or her
+information remains in the cache until SSSD is positive that it was removed from
+database, thus the scenario when a user is unable to login into his or her
 laptop because it was offline for a long time and cached data has expired simply
-can not happen. Besides many more features, this caching mechanism is one of
-the huge advantages over |nslcd|\footnote{De facto standard daemon that caches
+can not happen. Besides many more features, this caching mechanism is one of the
+biggest advantage over |nslcd|\footnote{De facto standard daemon that caches
 NSS-LDAP results, which is currently being replaced by SSSD on many Linux
 distributions.}.
 
@@ -37,8 +37,8 @@ has many mature features, here is a list of the most important ones:
 
 \begin{itemize}
   \item An open source project with active upstream development and community
-  \item Better caching mechanism than |nslcd|
-  \item In addition to identity information it also manages services, autofs
+  \item More predictable caching mechanism than |nslcd|
+  \item In addition to identity information it, also manages services, autofs
         maps, sudo rules, SSH host keys
   \item Integration with Kerberos -- automatic ticket renewal, seemingless
         ticket request during transition to online mode, \ldots
@@ -67,22 +67,19 @@ be downloaded either per request triggered by responder or some other outer
 event or it can be done periodically in the background. There is one data
 provider running for each domain.
 
-Responders represent supported services like NSS user and group maps, sudo
-policy, PAM authentication, etc. Each service has its own responder. It listens
-for client's request and when it comes, it searches the cache and report
-requested records back to the client.
+Responders represent supported services like NSS\footnotemark user and
+group maps, sudo policy, PAM authentication, etc. Each service has its own
+responder. A responder listens for client's request and when a request comes,
+it searches the cache and report requested records back to the client.
+
+\footnotetext{Name Service Switch, a mechanism that allows to specify different
+data sources for standard system services.}
 
 Finally, the client libraries are light-weight libraries that implement
 pluggable interface of target application. Its only goal is to be a middle-man
-between the application and SSSD responder, i.e. it sends request to responder
-and receives reply which is then served to the caller.
-
-Different parts of SSSD use different inter-process communication methods.
-Monitor communicates with other processes either via signals or it uses D-Bus
-for more sophisticated messages. Communication between responders and data
-providers is performed through D-Bus interface only. On the other hand,
-communication of client libraries and responders is done via sockets to keep
-client libraries as light-weight as possible.
+between the application and SSSD responder, i. e. it packs a request into
+a protocol implemented by selected responder and then unpacks the reply and
+return the response to the caller.
 
 \begin{figure}[H]
   \centering
@@ -91,13 +88,20 @@ client libraries as light-weight as possible.
   \label{fig:sssd-arch}
 \end{figure}
 
+Different parts of SSSD use different inter-process communication methods.
+Monitor communicates with other processes either via signals or it uses D-Bus
+for more sophisticated messages. Communication between responders and data
+providers is performed through D-Bus protocol only. On the other hand,
+communication of client libraries and responders is done via sockets to keep
+client libraries as light-weight as possible.
+
 \section{Cache management}
 \label{sssd:cache}
 
-As was already said, the cache is filled by data providers and consumed by
-responders. This is due to asynchronous nature of SSSD -- one process can
-still serve data to other clients while simultaneously the other process stores
-new or updates existing records.
+As was already said, the cache is populated by data providers and consumed by
+responders. This is due to asynchronous nature of SSSD -- one process can still
+serve data to other clients while simultaneously the other process stores new or
+updates existing records.
 
 SSSD has implemented several caching techniques that aims to improve the ratio
 between data consistency and response speed. Since every object type requires a
