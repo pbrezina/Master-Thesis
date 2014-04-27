@@ -1,6 +1,130 @@
 \chapter{Implementation of OpenLMI SSSD provider}
 
-\section{Provider specification}
+The goal of this thesis is to implement an SSSD provider for the OpenLMI
+project. The provider is supposed to export an interface to configure the most
+fundamental parts of the SSSD daemon and to retrieve basic information about
+managed domains. The required features of the provider are:
+
+\begin{itemize}
+  \item enable and disable domains and services
+  \item changing debug level of SSSD components
+  \item provide basic information about managed domains
+\end{itemize}
+
+This chapter will first describe designed CIM schema for the SSSD, which
+specifies the provider interface. Then it will briefly introduce several
+considered but abandoned solutions and at last it will describe the final
+implementation design in detail.
+
+\section{CIM Schema for OpenLMI SSSD provider}
+
+The first step to creation of a new OpenLMI (or CIM in general) provider is to
+create a CIM schema -- a conceptual model of the managed element. The model is
+described in Managed Object Format language (see section \cmplref{wbem:cim:mof}
+for details).
+
+Even though the MOF is an object oriented language, it is not recommended to use
+the same concepts and techniques to design classes that represents the managed
+objects as we are used to from object oriented programming languages. In
+programming languages, we usually hide the complexity of an object in private
+properties and methods and then we export a public interface that provides a
+higher level model of this object so it is simple to use.
+
+However, CIM schema goes the other way around. It is supposed to define a very
+low level model and reflect the managed elements and their relationships as
+accurate as possible. This often means that there are no methods of type
+|GetObjects()| to retrieve all instances of specific objects. Also there are
+usually no setter for the property, the instance should be modified directly.
+
+The following definition is a small part of my very first iteration of the SSSD
+CIM schema, which wrongly follows my experience from programming languages.
+It shows the difference between CIM concepts and OOP.
+
+\begin{lstlisting}[morekeywords={}]
+class LMI_SSSD
+{
+    [Static]
+    uint32 GetServices([Out] LMI_SSSD_Service REF services[]);
+    
+    [Static]
+    uint32 GetBackends([Out] LMI_SSSD_Backend REF backends[]);
+};
+\end{lstlisting}
+
+\funclistend There are several issues with this model. At first, every CIM class
+is supposed to inherit from one of the existing classes -- either the most
+generic |CIM_ManagedElement| or any other more concrete class that fits our
+needs.
+
+This looks like a reasonable requirement, however these classes defines a lot of
+additional properties and methods that our class inherits, but we most certainly
+do not need all of them. It is an unfortunate, but common practice that the
+provider for the new class does not implement most the inherited elements.
+
+The second issue is that the class contains methods that should be either
+completely omitted \footnotemark or if some relationship exist between SSSD and
+services/back-ends it is supposed to be implemented as an association.
+
+\footnotetext{Since we can do the same by fetching all instances of
+LMI_SSSD_Service and LMI_SSSD_Backend classes.
+See \cmplref{openlmi:shell:examples:instances}}
+
+The last issue is just a triviality. It breaks a naming convention, since
+managed services should be named with |Service| suffix.
+
+The correct way of modelling such objects that follows the CIM concepts is:
+
+\begin{lstlisting}
+class LMI_SSSDService : CIM_Service
+{
+
+};
+
+[Abstract, Description("Base class for SSSD's components.")]
+class LMI_SSSDComponent : CIM_ManagedElement
+{
+    /* common properties and methods */
+};
+
+/* The SSSDService is taken so we had to choose an
+ * equivalent word from SSSD terminology. */ 
+class LMI_SSSDResponder : LMI_SSSDComponent
+{
+    /* responder specific properties and methods */
+};
+
+class LMI_SSSDBackend : LMI_SSSDComponent
+{
+    /* back-end specific properties and methods */
+};
+
+[Association]
+class LMI_SSSDAvailableResponders
+{
+    [Key, Min(1), Max(1)]
+    LMI_SSSDService REF SSSD;
+    
+    [Key]
+    LMI_SSSDResponder REF Responder;
+};
+
+[Association]
+class LMI_SSSDAvailableBackends
+{
+    [Key, Min(1), Max(1)]
+    LMI_SSSDService REF SSSD;
+    
+    [Key]
+    LMI_SSSDBackend REF Backend;
+};
+\end{lstlisting}
+
+\subsection{Final schema}
+
+This section will present an UML diagram of the final version of the SSSD CIM
+schema and describe its important design decisions and components. This version
+was accepted by OpenLMI developers. The full MOF file can be found in Appendix
+\cmplref{appendix-mof}.
 
 \section{Considered solutions}
 
