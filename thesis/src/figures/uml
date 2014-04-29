@@ -1,0 +1,128 @@
+@startuml
+LMI_SSSDBackend -up-|> LMI_SSSDComponent
+class LMI_SSSDBackend {
+}
+url of LMI_SSSDBackend is [[LMI_SSSDBackend.html]]
+class LMI_SSSDAvailableComponent {
+    LMI_SSSDComponent Component
+    LMI_SSSDService SSSD
+}
+url of LMI_SSSDAvailableComponent is [[LMI_SSSDAvailableComponent.html]]
+LMI_SSSDDomain -up-|> CIM_ManagedElement
+class LMI_SSSDDomain {
+    string[] BackupServers
+    boolean Enumerate
+    string Forest
+    string FullyQualifiedNameFormat
+    boolean IsSubdomain
+    string LoginFormat
+    uint32 MaxId
+    uint32 MinId
+    string Name
+    string ParentDomain
+    string[] PrimaryServers
+    string Realm
+    boolean UseFullyQualifiedNames
+}
+url of LMI_SSSDDomain is [[LMI_SSSDDomain.html]]
+LMI_SSSDComponent -up-|> CIM_ManagedElement
+class LMI_SSSDComponent {
+    uint16 DebugLevel
+    boolean IsEnabled
+    string Name
+    uint16 Type
+    Disable()
+    Enable()
+    SetDebugLevelPermanently()
+    SetDebugLevelTemporarily()
+}
+url of LMI_SSSDComponent is [[LMI_SSSDComponent.html]]
+class LMI_SSSDProvider {
+    string Module
+    string Type
+}
+url of LMI_SSSDProvider is [[LMI_SSSDProvider.html]]
+LMI_HostedSSSDService -up-|> CIM_HostedService
+class LMI_HostedSSSDService {
+    CIM_ComputerSystem Antecedent
+    LMI_SSSDService Dependent
+}
+url of LMI_HostedSSSDService is [[LMI_HostedSSSDService.html]]
+CIM_ComputerSystem -up-|> CIM_System
+class CIM_ComputerSystem {
+    uint16[] Dedicated
+    string NameFormat
+    string[] OtherDedicatedDescriptions
+    uint16[] PowerManagementCapabilities
+    uint16 ResetCapability
+    SetPowerState()
+}
+url of CIM_ComputerSystem is [[CIM_ComputerSystem.html]]
+class LMI_SSSDBackendDomain {
+    LMI_SSSDBackend Backend
+    LMI_SSSDDomain Domain
+}
+url of LMI_SSSDBackendDomain is [[LMI_SSSDBackendDomain.html]]
+LMI_SSSDService -up-|> CIM_Service
+class LMI_SSSDService {
+}
+url of LMI_SSSDService is [[LMI_SSSDService.html]]
+CIM_Service -up-|> CIM_EnabledLogicalElement
+class CIM_Service {
+    string CreationClassName
+    string Name
+    string PrimaryOwnerContact
+    string PrimaryOwnerName
+    string StartMode
+    boolean Started
+    string SystemCreationClassName
+    string SystemName
+    StartService()
+    StopService()
+}
+url of CIM_Service is [[CIM_Service.html]]
+class CIM_ManagedElement {
+    string Caption
+    string Description
+    string ElementName
+    string InstanceID
+}
+url of CIM_ManagedElement is [[CIM_ManagedElement.html]]
+class LMI_SSSDAvailableDomain {
+    LMI_SSSDDomain Domain
+    LMI_SSSDService SSSD
+}
+url of LMI_SSSDAvailableDomain is [[LMI_SSSDAvailableDomain.html]]
+LMI_SSSDMonitor -up-|> LMI_SSSDComponent
+class LMI_SSSDMonitor {
+}
+url of LMI_SSSDMonitor is [[LMI_SSSDMonitor.html]]
+class LMI_SSSDBackendProvider {
+    LMI_SSSDBackend Backend
+    LMI_SSSDProvider Provider
+}
+url of LMI_SSSDBackendProvider is [[LMI_SSSDBackendProvider.html]]
+class LMI_SSSDDomainSubdomain {
+    LMI_SSSDDomain ParentDomain
+    LMI_SSSDDomain Subdomain
+}
+url of LMI_SSSDDomainSubdomain is [[LMI_SSSDDomainSubdomain.html]]
+CIM_HostedService -up-|> CIM_HostedDependency
+class CIM_HostedService {
+    CIM_System Antecedent
+    CIM_Service Dependent
+}
+url of CIM_HostedService is [[CIM_HostedService.html]]
+LMI_SSSDResponder -up-|> LMI_SSSDComponent
+class LMI_SSSDResponder {
+}
+url of LMI_SSSDResponder is [[LMI_SSSDResponder.html]]
+
+(LMI_SSSDService, LMI_SSSDComponent) . LMI_SSSDAvailableComponent
+(LMI_SSSDService, LMI_SSSDDomain) . LMI_SSSDAvailableDomain
+(LMI_SSSDBackend, LMI_SSSDProvider) . LMI_SSSDBackendProvider
+(LMI_SSSDBackend, LMI_SSSDDomain) . LMI_SSSDBackendDomain
+(LMI_SSSDDomain, LMI_SSSDDomain) . LMI_SSSDDomainSubdomain
+(CIM_ComputerSystem, LMI_SSSDService) . LMI_HostedSSSDService
+
+@enduml
